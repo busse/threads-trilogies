@@ -264,13 +264,32 @@ function TrilogyExplorer() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-b border-slate-700">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <h1 className="text-3xl font-bold text-white mb-1">
-            🎬 Logical Trilogies Explorer
-          </h1>
-          <p className="text-slate-400">
-            Interactive visualization of @busse's viral Threads post • 28.8K views • 282 replies
-          </p>
+        <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-1">
+              🎬 Logical Trilogies Explorer
+            </h1>
+            <p className="text-slate-400">
+              Interactive visualization of @busse's viral Threads post • 28.8K views • 282 replies
+            </p>
+          </div>
+          <nav className="flex items-center gap-4">
+            <a href="https://www.threads.com/@busse" target="_blank" rel="noopener noreferrer"
+               className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.59 12c.025 3.083.718 5.496 2.057 7.164 1.432 1.784 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.798-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.718-.203 1.386-.643 2.543-1.327 3.441-1.043 1.368-2.614 2.112-4.543 2.153h-.06c-1.57-.03-2.853-.566-3.715-1.553-.786-.9-1.2-2.1-1.196-3.473.01-2.904 2.04-4.882 5.05-4.916h.06c1.37.013 2.514.388 3.406 1.112.404.328.73.715.978 1.15.266-.505.447-1.076.538-1.71l2.027.28c-.18 1.316-.622 2.434-1.29 3.287l.009.006c.87.562 1.591 1.342 2.088 2.265.757 1.404 1.07 3.17.487 5.038-.802 2.57-2.814 4.39-5.82 5.267-1.352.394-2.843.593-4.434.604zm-.828-7.404c1.255-.027 2.212-.456 2.843-1.283.515-.675.85-1.584.996-2.693-.398-.376-.928-.655-1.573-.831-.6-.164-1.275-.248-2.006-.248h-.051c-1.958.023-3.107 1.2-3.114 3.004-.003.87.256 1.578.75 2.046.481.455 1.174.693 2.005.71h.15z"/></svg>
+              Threads
+            </a>
+            <a href="https://github.com/busse/threads-trilogies" target="_blank" rel="noopener noreferrer"
+               className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              GitHub
+            </a>
+            <a href="https://github.com/busse/threads-trilogies/tree/main/obsidian-vault" target="_blank" rel="noopener noreferrer"
+               className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.27c-6.075 0-11 4.925-11 11 0 4.226 2.385 7.89 5.882 9.735l.282-2.584c-2.2-1.483-3.647-3.994-3.647-6.85 0-2.085.774-3.993 2.05-5.45l2.02 1.858a7.17 7.17 0 00-1.553 4.464c0 2.082.89 3.957 2.307 5.27l.265-2.427A4.91 4.91 0 017.14 12.3c0-1.078.347-2.076.935-2.89l2.042 1.878a2.686 2.686 0 00-.46 1.504c0 1.483 1.204 2.687 2.687 2.687 1.482 0 2.686-1.204 2.686-2.687 0-1.482-1.203-2.686-2.686-2.686-.175 0-.345.017-.51.05L9.784 8.184A7.135 7.135 0 0112.344 7.6c3.956 0 7.165 3.208 7.165 7.165 0 2.665-1.458 4.994-3.618 6.233l.282 2.584C19.668 21.726 22.05 18.062 22.05 13.837c0-5.96-4.83-10.79-10.79-10.79L12 1.27z"/></svg>
+              Obsidian Vault
+            </a>
+          </nav>
         </div>
       </div>
 
