@@ -1,0 +1,113 @@
+OBSIDIAN VAULT CREATION SUMMARY
+================================
+
+PROJECT COMPLETE
+Location: /sessions/relaxed-determined-faraday/mnt/THREADS-VIZ/obsidian-vault/
+
+STRUCTURE CREATED
+=================
+
+1. ROOT LEVEL (1 file):
+   - README.md - Comprehensive guide with statistics and usage instructions
+
+2. TRILOGIES FOLDER (114 files):
+   - One .md file for each trilogy from the dataset
+   - Format: [Theme Name].md
+   - Example: "Saving Matt Damon.md"
+   - Each file contains:
+     * Trilogy title and theme
+     * Creator username and like count
+     * List of 3 movies with [[wiki links]]
+     * Tags: #trilogy #actor-connection
+
+3. MOVIES FOLDER (34 files):
+   - One .md file for each movie appearing in MULTIPLE trilogies
+   - Format: [Movie Title].md
+   - Example: "Dazed and Confused.md"
+   - Each file contains:
+     * Movie title
+     * List of all trilogies it appears in with [[wiki links]]
+     * Tags: #movie #shared-movie
+
+STATISTICS
+==========
+Total Trilogies:           114
+Unique Movies:             303
+Shared Movies (2+ uses):   34
+Single-Appearance Movies:  269
+Total Markdown Files:      149 (114 trilogies + 34 shared movies + README)
+
+Top Connected Movies:
+1. Dazed and Confused      - 4 trilogies
+2. Full Metal Jacket       - 3 trilogies
+3. Apocalypse Now          - 3 trilogies
+4. Fear and Loathing...    - 3 trilogies
+5-34: Various movies       - 2 trilogies each
+
+GRAPH VISUALIZATION
+===================
+
+When opened in Obsidian's Graph View, this creates:
+
+- 149 nodes (files)
+- Wiki-link connections between trilogies and movies
+- Natural force-directed layout grouping related concepts
+- Tag-based filtering options (#trilogy, #movie, #shared-movie)
+
+Connection Types:
+1. Trilogy → Movie: Each trilogy links to its 3 constituent movies
+2. Movie → Trilogy: Shared movies link back to all trilogies they appear in
+
+This creates interesting network clusters around:
+- Movies like "Dazed and Confused" (appears in 4 trilogies)
+- Movies like "Apocalypse Now" (bridging Vietnam-themed trilogies)
+- Movies like "The Martian" (bridging space/survival/actor themes)
+
+HOW TO USE
+==========
+
+1. Open in Obsidian:
+   - Launch Obsidian
+   - Click "Open vault folder as vault"
+   - Select: /sessions/relaxed-determined-faraday/mnt/THREADS-VIZ/obsidian-vault
+
+2. View the Graph:
+   - Press Ctrl+G (or Cmd+G on Mac) to open Graph View
+   - Interact with the force-directed graph
+   - Click nodes to highlight connections
+   - Use tags filter to show/hide node types
+
+3. Explore Connections:
+   - Click on shared movies like "Dazed and Confused"
+   - See how it connects 4 different thematic contexts
+   - Trace movie connections across trilogies
+   - Find surprising thematic bridges
+
+4. Recommended Graph Settings:
+   - Force: 1.5-2.0 (increases spacing)
+   - Center Force: 0.3 (prevents clustering at center)
+   - Repel Force: -50 to -100 (repels nodes)
+   - Link Force: 1.0 (default)
+
+DATA SOURCE
+===========
+- Source: https://www.threads.com/@busse/post/DUGELJelUo6
+- Title: "Logical Trilogies That Aren't Actually Trilogies"
+- Original Post by: @busse
+- Scraped: 2026-01-30
+- Post Stats: 28,800 views, 183 likes, 282 replies
+
+KEY FEATURES
+============
+
+✓ Full wiki-link support for Obsidian graph creation
+✓ Organized in logical folders (Trilogies / Movies)
+✓ Shared movies identified and separated
+✓ All metadata preserved (creator, likes, themes)
+✓ Clean markdown formatting ready for Obsidian
+✓ Tag system for filtering and organization
+✓ Comprehensive README with usage guide
+✓ Graph will auto-generate without plugins needed
+
+The vault is ready to use immediately. Just open in Obsidian and
+explore the force-directed graph visualization!

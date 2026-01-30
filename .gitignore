@@ -1,0 +1,12 @@
+# Obsidian workspace (user-specific, changes frequently)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
