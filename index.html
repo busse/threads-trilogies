@@ -11,6 +11,8 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; }
+    a.nav-link { text-decoration: none; }
+    a.nav-link:hover .nav-label { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -157,7 +159,16 @@ const trilogiesData = [
   {"id": 137, "user": "r3conklin", "movies": ["Blow Up", "The Conversation", "Enemy of the State"], "theme": "Surveillance Paranoia", "likes": 0}
 ];
 
-// Build movie frequency map for highlighting shared movies
+// ── Utilities ──────────────────────────────────────────────────
+
+const toSlug = (str) =>
+  str.toLowerCase()
+    .replace(/[''\u2019]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+// ── Data indices (built once) ──────────────────────────────────
+
 const movieFrequency = {};
 trilogiesData.forEach(t => {
   t.movies.forEach(m => {
@@ -165,52 +176,307 @@ trilogiesData.forEach(t => {
   });
 });
 
-const MoviePill = ({ movie }) => {
-  const freq = movieFrequency[movie] || 1;
+// Detect theme slug collisions
+const _slugCount = {};
+trilogiesData.forEach(t => {
+  const s = toSlug(t.theme);
+  _slugCount[s] = (_slugCount[s] || 0) + 1;
+});
+
+// Attach slug to each trilogy, disambiguate collisions with id suffix
+const trilogyBySlug = {};
+trilogiesData.forEach(t => {
+  const base = toSlug(t.theme);
+  t.slug = _slugCount[base] > 1 ? `${base}-${t.id}` : base;
+  trilogyBySlug[t.slug] = t;
+});
+
+// Movie title lookup by slug
+const movieBySlug = {};
+const allMovieTitles = [...new Set(trilogiesData.flatMap(t => t.movies))];
+allMovieTitles.forEach(title => {
+  movieBySlug[toSlug(title)] = title;
+});
+
+// Movie -> trilogies map
+const trilogiesByMovie = {};
+trilogiesData.forEach(t => {
+  t.movies.forEach(m => {
+    if (!trilogiesByMovie[m]) trilogiesByMovie[m] = [];
+    trilogiesByMovie[m].push(t);
+  });
+});
+
+// ── Hash Router ────────────────────────────────────────────────
+
+const parseHash = (hash) => {
+  const path = hash.replace(/^#\/?/, '');
+  if (!path) return { page: 'home', slug: '' };
+  const i = path.indexOf('/');
+  if (i === -1) return { page: path, slug: '' };
+  return { page: path.slice(0, i), slug: decodeURIComponent(path.slice(i + 1)) };
+};
+
+const useHashRouter = () => {
+  const [route, setRoute] = React.useState(() => parseHash(window.location.hash));
+  React.useEffect(() => {
+    const onHash = () => {
+      setRoute(parseHash(window.location.hash));
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  return route;
+};
+
+// ── Shared Components ──────────────────────────────────────────
+
+const NavLink = ({ to, className, children, external, title: titleAttr }) => {
+  if (external) {
+    return (
+      <a href={to} target="_blank" rel="noopener noreferrer"
+         title={titleAttr}
+         className={`nav-link ${className || ''}`}
+         onClick={e => e.stopPropagation()}>
+        {children}
+      </a>
+    );
+  }
   return (
-    <span className={`inline-block px-3 py-1 rounded-full text-sm mr-2 mb-2
-                     ${freq > 1 ? 'bg-yellow-500/30 text-yellow-200 border border-yellow-500/50' : 'bg-slate-700 text-gray-300'}`}>
-      {movie} {freq > 1 && <span className="text-xs">×{freq}</span>}
-    </span>
+    <a href={`#${to}`}
+       title={titleAttr}
+       className={`nav-link cursor-pointer ${className || ''}`}
+       onClick={e => e.stopPropagation()}>
+      {children}
+    </a>
   );
 };
 
-const TrilogyRow = ({ trilogy, rank, onSelect, isSelected }) => (
-  <div
-    onClick={() => onSelect(trilogy)}
-    className={`p-4 rounded-xl cursor-pointer transition-all duration-200
-               ${isSelected ? 'bg-gradient-to-r from-purple-600/50 to-blue-600/50 border border-purple-400' : 'bg-slate-800 hover:bg-slate-700'}`}
-  >
-    <div className="flex items-start justify-between">
-      <div className="flex items-center gap-3">
-        <span className={`text-2xl font-bold ${rank <= 3 ? 'text-yellow-400' : 'text-slate-500'}`}>
-          #{rank}
-        </span>
-        <div>
-          <h3 className="text-white font-semibold">{trilogy.theme}</h3>
-          <p className="text-slate-400 text-sm">@{trilogy.user} {trilogy.isOP && <span className="text-purple-400">(OP)</span>}</p>
-        </div>
-      </div>
-      <div className="text-right">
-        <span className="text-pink-400 font-bold">{trilogy.likes > 0 ? `❤️ ${trilogy.likes}` : ''}</span>
-      </div>
-    </div>
-    <div className="mt-3 flex items-center text-slate-300 text-sm flex-wrap">
-      {trilogy.movies.map((m, i) => (
-        <span key={i} className="flex items-center">
-          <span className={movieFrequency[m] > 1 ? 'text-yellow-300' : ''}>{m}</span>
-          {i < 2 && <span className="mx-2 text-slate-500">→</span>}
-        </span>
-      ))}
-    </div>
-  </div>
+const ThreadsUserLink = ({ user, className }) => (
+  <NavLink external to={`https://www.threads.com/@${user}`}
+           className={className || 'text-purple-400 hover:text-purple-300'}>
+    <span className="nav-label">@{user}</span>
+  </NavLink>
 );
 
-function TrilogyExplorer() {
+const Breadcrumb = ({ items }) => (
+  <nav className="flex items-center gap-2 text-sm text-slate-400 mb-6 flex-wrap">
+    <NavLink to="/" className="hover:text-white text-slate-400">
+      <span className="nav-label">Explorer</span>
+    </NavLink>
+    {items.map((item, i) => (
+      <React.Fragment key={i}>
+        <span className="text-slate-600">/</span>
+        {item.to ? (
+          <NavLink to={item.to} className="hover:text-white text-slate-400">
+            <span className="nav-label">{item.label}</span>
+          </NavLink>
+        ) : (
+          <span className="text-white">{item.label}</span>
+        )}
+      </React.Fragment>
+    ))}
+  </nav>
+);
+
+const MoviePill = ({ movie, linked }) => {
+  const freq = movieFrequency[movie] || 1;
+  const pill = (
+    <span className={`inline-block px-3 py-1 rounded-full text-sm mr-2 mb-2 transition-colors
+                     ${freq > 1 ? 'bg-yellow-500/30 text-yellow-200 border border-yellow-500/50' : 'bg-slate-700 text-gray-300'}
+                     ${linked ? 'hover:bg-yellow-500/50 cursor-pointer' : ''}`}>
+      {movie} {freq > 1 && <span className="text-xs">{'\u00d7'}{freq}</span>}
+    </span>
+  );
+  if (linked) {
+    return <NavLink to={`/movie/${toSlug(movie)}`}>{pill}</NavLink>;
+  }
+  return pill;
+};
+
+// ── Trilogy Detail Page ────────────────────────────────────────
+
+const TrilogyDetailPage = ({ slug }) => {
+  const trilogy = trilogyBySlug[slug];
+  if (!trilogy) return <NotFoundPage message={`Trilogy "${slug}" not found.`} />;
+
+  const connectedTrilogies = React.useMemo(() => {
+    const seen = new Set();
+    const connections = [];
+    trilogy.movies.forEach(movie => {
+      (trilogiesByMovie[movie] || []).forEach(t => {
+        if (t.id !== trilogy.id && !seen.has(t.id)) {
+          seen.add(t.id);
+          connections.push({ trilogy: t, sharedMovie: movie });
+        }
+      });
+    });
+    return connections;
+  }, [slug]);
+
+  React.useEffect(() => {
+    document.title = `${trilogy.theme} - Logical Trilogies`;
+  }, [slug]);
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-8">
+      <Breadcrumb items={[{ label: trilogy.theme }]} />
+
+      <h1 className="text-3xl font-bold text-white mb-3">{trilogy.theme}</h1>
+      <p className="text-slate-400 mb-1">
+        by <ThreadsUserLink user={trilogy.user} />
+        {trilogy.isOP && <span className="text-purple-400 ml-2">(Original Poster)</span>}
+      </p>
+      {trilogy.likes > 0 && (
+        <p className="text-pink-400 text-lg mb-6">{trilogy.likes} likes</p>
+      )}
+      {!trilogy.likes && <div className="mb-6" />}
+
+      <h2 className="text-white font-semibold mb-4 text-lg">The Trilogy</h2>
+      <div className="space-y-3 mb-8">
+        {trilogy.movies.map((m, i) => (
+          <NavLink key={i} to={`/movie/${toSlug(m)}`} className="block">
+            <div className="bg-slate-800 rounded-lg p-4 flex items-center hover:bg-slate-700 transition-colors">
+              <span className="text-3xl font-bold text-slate-600 mr-4">{i + 1}</span>
+              <div>
+                <span className="text-white font-medium nav-label">{m}</span>
+                {movieFrequency[m] > 1 && (
+                  <span className="block text-yellow-400 text-xs mt-1">
+                    Appears in {movieFrequency[m]} trilogies
+                  </span>
+                )}
+              </div>
+            </div>
+          </NavLink>
+        ))}
+      </div>
+
+      {connectedTrilogies.length > 0 && (
+        <>
+          <h2 className="text-white font-semibold mb-4 text-lg">Connected Trilogies</h2>
+          <p className="text-slate-500 text-sm mb-3">Trilogies that share a movie with this one</p>
+          <div className="space-y-2">
+            {connectedTrilogies.map(({ trilogy: t, sharedMovie }) => (
+              <NavLink key={t.id} to={`/trilogy/${t.slug}`} className="block">
+                <div className="bg-slate-800 rounded-lg p-3 hover:bg-slate-700 transition-colors flex items-center justify-between">
+                  <div>
+                    <span className="text-white nav-label">{t.theme}</span>
+                    <span className="text-slate-500 text-sm ml-2">
+                      by <span className="text-purple-400">@{t.user}</span>
+                    </span>
+                  </div>
+                  <span className="text-yellow-400 text-xs shrink-0 ml-2">via {sharedMovie}</span>
+                </div>
+              </NavLink>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── Movie Detail Page ──────────────────────────────────────────
+
+const MovieDetailPage = ({ slug }) => {
+  const movieTitle = movieBySlug[slug];
+  if (!movieTitle) return <NotFoundPage message={`Movie "${slug}" not found.`} />;
+
+  const trilogies = trilogiesByMovie[movieTitle] || [];
+  const freq = movieFrequency[movieTitle] || 1;
+
+  const siblingMovies = React.useMemo(() => {
+    const siblings = new Set();
+    trilogies.forEach(t => t.movies.forEach(m => { if (m !== movieTitle) siblings.add(m); }));
+    return [...siblings].sort();
+  }, [slug]);
+
+  React.useEffect(() => {
+    document.title = `${movieTitle} - Logical Trilogies`;
+  }, [slug]);
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-8">
+      <Breadcrumb items={[{ label: movieTitle }]} />
+
+      <h1 className="text-3xl font-bold text-white mb-3">{movieTitle}</h1>
+      <span className={`inline-block px-3 py-1 rounded-full text-sm mb-6
+        ${freq > 1 ? 'bg-yellow-500/30 text-yellow-200 border border-yellow-500/50' : 'bg-slate-700 text-gray-300'}`}>
+        {freq > 1 ? `Appears in ${freq} trilogies` : 'Appears in 1 trilogy'}
+      </span>
+
+      <h2 className="text-white font-semibold mb-4 text-lg">Featured In</h2>
+      <div className="space-y-3 mb-8">
+        {trilogies.sort((a, b) => b.likes - a.likes).map(t => (
+          <NavLink key={t.id} to={`/trilogy/${t.slug}`} className="block">
+            <div className="bg-slate-800 rounded-lg p-4 hover:bg-slate-700 transition-colors">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-white font-medium nav-label">{t.theme}</span>
+                  <span className="text-slate-500 text-sm block mt-1">
+                    by <ThreadsUserLink user={t.user} />
+                  </span>
+                </div>
+                {t.likes > 0 && <span className="text-pink-400 shrink-0 ml-2">{t.likes} likes</span>}
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                {t.movies.map((m, i) => (
+                  <span key={i}>
+                    <span className={m === movieTitle ? 'text-yellow-300' : ''}>{m}</span>
+                    {i < 2 && <span className="mx-1">{'\u2192'}</span>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </NavLink>
+        ))}
+      </div>
+
+      {siblingMovies.length > 0 && (
+        <>
+          <h2 className="text-white font-semibold mb-4 text-lg">Related Movies</h2>
+          <p className="text-slate-500 text-sm mb-3">Other movies from the same trilogies</p>
+          <div className="flex flex-wrap">
+            {siblingMovies.map(m => (
+              <MoviePill key={m} movie={m} linked />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── Not Found Page ─────────────────────────────────────────────
+
+const NotFoundPage = ({ message }) => {
+  React.useEffect(() => {
+    document.title = 'Not Found - Logical Trilogies';
+  }, []);
+
+  return (
+    <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+      <h1 className="text-4xl font-bold text-white mb-4">Not Found</h1>
+      <p className="text-slate-400 mb-6">{message || 'The page you are looking for does not exist.'}</p>
+      <NavLink to="/" className="text-purple-400 hover:text-purple-300">
+        <span className="nav-label">Back to Explorer</span>
+      </NavLink>
+    </div>
+  );
+};
+
+// ── Explorer Page (the original home view) ─────────────────────
+
+function ExplorePage({ initialSearch }) {
   const [view, setView] = React.useState('list');
-  const [search, setSearch] = React.useState('');
+  const [search, setSearch] = React.useState(initialSearch || '');
   const [sortBy, setSortBy] = React.useState('likes');
   const [selected, setSelected] = React.useState(null);
+
+  React.useEffect(() => {
+    document.title = 'Logical Trilogies Explorer';
+  }, []);
 
   const filteredData = React.useMemo(() => {
     let data = [...trilogiesData];
@@ -261,16 +527,287 @@ function TrilogyExplorer() {
     .sort((a, b) => b[1] - a[1]);
 
   return (
+    <div className="max-w-6xl mx-auto px-6 py-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+        {[
+          { label: 'Trilogies', value: stats.totalTrilogies, icon: '🎯' },
+          { label: 'Unique Movies', value: stats.uniqueMovies, icon: '🎬' },
+          { label: 'Shared Movies', value: stats.sharedMovies, icon: '🔗', highlight: true },
+          { label: 'Total Likes', value: stats.totalLikes, icon: '❤️' },
+          { label: 'Contributors', value: stats.contributors, icon: '👥' },
+          { label: 'Top Contributor', value: `@${stats.topContributor[0]}`, subvalue: `${stats.topContributor[1]} trilogies`, icon: '👑' },
+        ].map((stat, i) => (
+          <div key={i} className={`rounded-xl p-4 ${stat.highlight ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-slate-800'}`}>
+            <div className="text-xl mb-1">{stat.icon}</div>
+            <div className="text-xl font-bold text-white">{stat.value}</div>
+            <div className="text-slate-400 text-xs">{stat.label}</div>
+            {stat.subvalue && <div className="text-slate-500 text-xs">{stat.subvalue}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="flex flex-wrap gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="Search movies, themes, or users..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-64 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2
+                    text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+        />
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white"
+        >
+          <option value="likes">Sort by Likes</option>
+          <option value="theme">Sort by Theme</option>
+          <option value="user">Sort by User</option>
+        </select>
+        <div className="flex rounded-lg overflow-hidden border border-slate-700">
+          {['list', 'grid', 'connections'].map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`px-4 py-2 text-sm capitalize
+                         ${view === v ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          {view === 'list' && (
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+              {filteredData.map((t, i) => (
+                <div
+                  key={t.id}
+                  onClick={() => setSelected(t)}
+                  className={`p-4 rounded-xl cursor-pointer transition-all duration-200
+                             ${selected?.id === t.id ? 'bg-gradient-to-r from-purple-600/50 to-blue-600/50 border border-purple-400' : 'bg-slate-800 hover:bg-slate-700'}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-2xl font-bold ${i < 3 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                        #{i + 1}
+                      </span>
+                      <div>
+                        <NavLink to={`/trilogy/${t.slug}`} className="text-white font-semibold hover:text-purple-300">
+                          <span className="nav-label">{t.theme}</span>
+                        </NavLink>
+                        <p className="text-slate-400 text-sm">
+                          <ThreadsUserLink user={t.user} />
+                          {t.isOP && <span className="text-purple-400 ml-1">(OP)</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-pink-400 font-bold">{t.likes > 0 ? `${t.likes} likes` : ''}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center text-slate-300 text-sm flex-wrap">
+                    {t.movies.map((m, j) => (
+                      <span key={j} className="flex items-center">
+                        <NavLink to={`/movie/${toSlug(m)}`}
+                                 className={`hover:underline ${movieFrequency[m] > 1 ? 'text-yellow-300' : 'text-slate-300'}`}>
+                          <span className="nav-label">{m}</span>
+                        </NavLink>
+                        {j < 2 && <span className="mx-2 text-slate-500">{'\u2192'}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {view === 'grid' && (
+            <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-2">
+              {filteredData.map((t, i) => (
+                <div
+                  key={t.id}
+                  onClick={() => setSelected(t)}
+                  className={`p-4 rounded-xl cursor-pointer transition-all
+                             ${selected?.id === t.id ? 'bg-purple-600/30 border border-purple-400' : 'bg-slate-800 hover:bg-slate-700'}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs text-slate-500">#{i + 1}</span>
+                    {t.likes > 0 && <span className="text-pink-400 text-sm">{t.likes} likes</span>}
+                  </div>
+                  <NavLink to={`/trilogy/${t.slug}`} className="text-white font-semibold mb-1 text-sm hover:text-purple-300">
+                    <span className="nav-label">{t.theme}</span>
+                  </NavLink>
+                  <p className="text-slate-500 text-xs mb-2">
+                    <ThreadsUserLink user={t.user} className="text-slate-500 hover:text-purple-400" />
+                  </p>
+                  <div className="flex flex-wrap">
+                    {t.movies.map((m, j) => (
+                      <MoviePill key={j} movie={m} linked />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {view === 'connections' && (
+            <div className="bg-slate-800 rounded-xl p-6 max-h-[70vh] overflow-y-auto">
+              <h3 className="text-white font-semibold mb-4">Movies in Multiple Trilogies</h3>
+              <p className="text-slate-400 text-sm mb-4">
+                These movies appear in more than one "logical trilogy" - they're connection points in the data!
+              </p>
+              {sharedMoviesList.length > 0 ? (
+                <div className="space-y-4">
+                  {sharedMoviesList.map(([movie, count]) => {
+                    const trilogiesWithMovie = trilogiesData.filter(t => t.movies.includes(movie));
+                    return (
+                      <div key={movie} className="bg-slate-900 rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <NavLink to={`/movie/${toSlug(movie)}`} className="text-yellow-300 font-semibold text-lg hover:text-yellow-200">
+                            <span className="nav-label">{movie}</span>
+                          </NavLink>
+                          <span className="bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full text-sm">
+                            {count} trilogies
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {trilogiesWithMovie.map(t => (
+                            <NavLink key={t.id} to={`/trilogy/${t.slug}`}
+                                     className="text-slate-400 text-sm hover:text-white block">
+                              <span className="nav-label">
+                                {'\u2192'} <span className="text-slate-300">{t.theme}</span>
+                                <span className="text-slate-500"> by @{t.user}</span>
+                                {t.likes > 0 && <span className="text-pink-400 ml-2">({t.likes} likes)</span>}
+                              </span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-slate-500">No movies appear in multiple trilogies in the current filter.</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          {selected ? (
+            <div className="bg-slate-800 rounded-xl p-6 sticky top-6">
+              <div className="flex justify-between items-start mb-4">
+                <NavLink to={`/trilogy/${selected.slug}`} className="text-xl font-bold text-white hover:text-purple-300">
+                  <span className="nav-label">{selected.theme}</span>
+                </NavLink>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="text-slate-500 hover:text-white text-xl ml-2 shrink-0"
+                >
+                  {'\u2715'}
+                </button>
+              </div>
+              <p className="text-slate-400 mb-4">
+                by <ThreadsUserLink user={selected.user} />
+                {selected.isOP && <span className="text-purple-400 ml-1">(Original Poster)</span>}
+              </p>
+              {selected.likes > 0 && (
+                <p className="text-pink-400 mb-4 text-lg">{selected.likes} likes</p>
+              )}
+              <h4 className="text-white font-semibold mb-3">The Trilogy:</h4>
+              <div className="space-y-3">
+                {selected.movies.map((m, i) => (
+                  <NavLink key={i} to={`/movie/${toSlug(m)}`} className="block">
+                    <div className="bg-slate-900 rounded-lg p-3 flex items-center hover:bg-slate-800 transition-colors">
+                      <span className="text-3xl font-bold text-slate-600 mr-4">{i + 1}</span>
+                      <div>
+                        <span className="text-white font-medium nav-label">{m}</span>
+                        {movieFrequency[m] > 1 && (
+                          <span className="block text-yellow-400 text-xs mt-1">
+                            Also in {movieFrequency[m] - 1} other {movieFrequency[m] - 1 === 1 ? 'trilogy' : 'trilogies'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-700">
+                <NavLink to={`/trilogy/${selected.slug}`} className="text-purple-400 hover:text-purple-300 text-sm">
+                  <span className="nav-label">View full details {'\u2192'}</span>
+                </NavLink>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-800 rounded-xl p-6 sticky top-6">
+              <h3 className="text-white font-semibold mb-3">Quick Stats</h3>
+              <div className="space-y-2 text-sm">
+                <p className="text-slate-400">
+                  <span className="text-white">{filteredData.length}</span> trilogies showing
+                </p>
+                <p className="text-slate-400">
+                  <span className="text-white">{sharedMoviesList.length}</span> shared movies
+                </p>
+              </div>
+              <hr className="border-slate-700 my-4" />
+              <h4 className="text-white font-semibold mb-2">Top Trilogies</h4>
+              <div className="space-y-2">
+                {trilogiesData.slice(0, 5).map((t, i) => (
+                  <NavLink key={t.id} to={`/trilogy/${t.slug}`}
+                           className="text-sm text-slate-400 hover:text-purple-400 block">
+                    <span className="nav-label">
+                      {i + 1}. {t.theme} <span className="text-pink-400">({t.likes} likes)</span>
+                    </span>
+                  </NavLink>
+                ))}
+              </div>
+              <hr className="border-slate-700 my-4" />
+              <h4 className="text-white font-semibold mb-2">Most Connected</h4>
+              <div className="space-y-1">
+                {sharedMoviesList.slice(0, 5).map(([movie, count]) => (
+                  <NavLink key={movie} to={`/movie/${toSlug(movie)}`}
+                           className="text-sm text-yellow-300 hover:text-yellow-200 block">
+                    <span className="nav-label">{movie} <span className="text-slate-500">({count})</span></span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-8 text-center text-slate-600 text-sm">
+        Data from <NavLink external to="https://www.threads.com/@busse/post/DUGELJelUo6" className="text-slate-500 hover:text-slate-400"><span className="nav-label">@busse's Thread</span></NavLink> {'\u00b7'} 28.8K views {'\u00b7'} 282 replies {'\u00b7'} Built with React + Tailwind
+      </div>
+    </div>
+  );
+}
+
+// ── App Shell ──────────────────────────────────────────────────
+
+function App() {
+  const route = useHashRouter();
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-900/50 to-blue-900/50 border-b border-slate-700">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-1">
-              🎬 Logical Trilogies Explorer
-            </h1>
+            <a href="#/" className="no-underline">
+              <h1 className="text-3xl font-bold text-white mb-1 hover:text-purple-200 transition-colors">
+                Logical Trilogies Explorer
+              </h1>
+            </a>
             <p className="text-slate-400">
-              Interactive visualization of @busse's viral Threads post • 28.8K views • 282 replies
+              Interactive visualization of @busse's viral Threads post
             </p>
           </div>
           <nav className="flex items-center gap-3 md:gap-4 shrink-0">
@@ -296,227 +833,20 @@ function TrilogyExplorer() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-          {[
-            { label: 'Trilogies', value: stats.totalTrilogies, icon: '🎯' },
-            { label: 'Unique Movies', value: stats.uniqueMovies, icon: '🎬' },
-            { label: 'Shared Movies', value: stats.sharedMovies, icon: '🔗', highlight: true },
-            { label: 'Total Likes', value: stats.totalLikes, icon: '❤️' },
-            { label: 'Contributors', value: stats.contributors, icon: '👥' },
-            { label: 'Top Contributor', value: `@${stats.topContributor[0]}`, subvalue: `${stats.topContributor[1]} trilogies`, icon: '👑' },
-          ].map((stat, i) => (
-            <div key={i} className={`rounded-xl p-4 ${stat.highlight ? 'bg-yellow-500/20 border border-yellow-500/30' : 'bg-slate-800'}`}>
-              <div className="text-xl mb-1">{stat.icon}</div>
-              <div className="text-xl font-bold text-white">{stat.value}</div>
-              <div className="text-slate-400 text-xs">{stat.label}</div>
-              {stat.subvalue && <div className="text-slate-500 text-xs">{stat.subvalue}</div>}
-            </div>
-          ))}
-        </div>
+      {/* Route content */}
+      {route.page === 'home' && <ExplorePage />}
+      {route.page === 'trilogy' && <TrilogyDetailPage slug={route.slug} />}
+      {route.page === 'movie' && <MovieDetailPage slug={route.slug} />}
+      {route.page === 'search' && <ExplorePage initialSearch={decodeURIComponent(route.slug)} />}
+      {!['home', 'trilogy', 'movie', 'search'].includes(route.page) && <NotFoundPage />}
 
-        {/* Controls */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="Search movies, themes, or users..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 min-w-64 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2
-                      text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
-          />
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value)}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white"
-          >
-            <option value="likes">Sort by Likes</option>
-            <option value="theme">Sort by Theme</option>
-            <option value="user">Sort by User</option>
-          </select>
-          <div className="flex rounded-lg overflow-hidden border border-slate-700">
-            {['list', 'grid', 'connections'].map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-4 py-2 text-sm capitalize
-                           ${view === v ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {view === 'list' && (
-              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                {filteredData.map((t, i) => (
-                  <TrilogyRow
-                    key={t.id}
-                    trilogy={t}
-                    rank={i + 1}
-                    onSelect={setSelected}
-                    isSelected={selected?.id === t.id}
-                  />
-                ))}
-              </div>
-            )}
-
-            {view === 'grid' && (
-              <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto pr-2">
-                {filteredData.map((t, i) => (
-                  <div
-                    key={t.id}
-                    onClick={() => setSelected(t)}
-                    className={`p-4 rounded-xl cursor-pointer transition-all
-                               ${selected?.id === t.id ? 'bg-purple-600/30 border border-purple-400' : 'bg-slate-800 hover:bg-slate-700'}`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-xs text-slate-500">#{i + 1}</span>
-                      {t.likes > 0 && <span className="text-pink-400 text-sm">❤️ {t.likes}</span>}
-                    </div>
-                    <h3 className="text-white font-semibold mb-1 text-sm">{t.theme}</h3>
-                    <p className="text-slate-500 text-xs mb-2">@{t.user}</p>
-                    <div className="flex flex-wrap">
-                      {t.movies.map((m, j) => (
-                        <MoviePill key={j} movie={m} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {view === 'connections' && (
-              <div className="bg-slate-800 rounded-xl p-6 max-h-[70vh] overflow-y-auto">
-                <h3 className="text-white font-semibold mb-4">🔗 Movies in Multiple Trilogies</h3>
-                <p className="text-slate-400 text-sm mb-4">
-                  These movies appear in more than one "logical trilogy" - they're connection points in the data!
-                </p>
-                {sharedMoviesList.length > 0 ? (
-                  <div className="space-y-4">
-                    {sharedMoviesList.map(([movie, count]) => {
-                      const trilogiesWithMovie = trilogiesData.filter(t => t.movies.includes(movie));
-                      return (
-                        <div key={movie} className="bg-slate-900 rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-yellow-300 font-semibold text-lg">{movie}</span>
-                            <span className="bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full text-sm">
-                              {count} trilogies
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            {trilogiesWithMovie.map(t => (
-                              <div
-                                key={t.id}
-                                className="text-slate-400 text-sm cursor-pointer hover:text-white"
-                                onClick={() => setSelected(t)}
-                              >
-                                → <span className="text-slate-300">{t.theme}</span>
-                                <span className="text-slate-500"> by @{t.user}</span>
-                                {t.likes > 0 && <span className="text-pink-400 ml-2">({t.likes}❤️)</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-slate-500">No movies appear in multiple trilogies in the current filter.</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            {selected ? (
-              <div className="bg-slate-800 rounded-xl p-6 sticky top-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-bold text-white">{selected.theme}</h3>
-                  <button
-                    onClick={() => setSelected(null)}
-                    className="text-slate-500 hover:text-white text-xl"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p className="text-slate-400 mb-4">
-                  by @{selected.user} {selected.isOP && <span className="text-purple-400">(Original Poster)</span>}
-                </p>
-                {selected.likes > 0 && (
-                  <p className="text-pink-400 mb-4 text-lg">❤️ {selected.likes} likes</p>
-                )}
-                <h4 className="text-white font-semibold mb-3">The Trilogy:</h4>
-                <div className="space-y-3">
-                  {selected.movies.map((m, i) => (
-                    <div key={i} className="bg-slate-900 rounded-lg p-3 flex items-center">
-                      <span className="text-3xl font-bold text-slate-600 mr-4">{i + 1}</span>
-                      <div>
-                        <span className="text-white font-medium">{m}</span>
-                        {movieFrequency[m] > 1 && (
-                          <span className="block text-yellow-400 text-xs mt-1">
-                            🔗 Also in {movieFrequency[m] - 1} other trilogy
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-slate-800 rounded-xl p-6 sticky top-6">
-                <h3 className="text-white font-semibold mb-3">📊 Quick Stats</h3>
-                <div className="space-y-2 text-sm">
-                  <p className="text-slate-400">
-                    <span className="text-white">{filteredData.length}</span> trilogies showing
-                  </p>
-                  <p className="text-slate-400">
-                    <span className="text-white">{sharedMoviesList.length}</span> shared movies
-                  </p>
-                </div>
-                <hr className="border-slate-700 my-4" />
-                <h4 className="text-white font-semibold mb-2">🏆 Top Trilogies</h4>
-                <div className="space-y-2">
-                  {trilogiesData.slice(0, 5).map((t, i) => (
-                    <div
-                      key={t.id}
-                      onClick={() => setSelected(t)}
-                      className="text-sm cursor-pointer hover:text-purple-400 text-slate-400"
-                    >
-                      {i + 1}. {t.theme} <span className="text-pink-400">({t.likes}❤️)</span>
-                    </div>
-                  ))}
-                </div>
-                <hr className="border-slate-700 my-4" />
-                <h4 className="text-white font-semibold mb-2">🔗 Most Connected</h4>
-                <div className="space-y-1">
-                  {sharedMoviesList.slice(0, 5).map(([movie, count]) => (
-                    <div key={movie} className="text-sm text-yellow-300">
-                      {movie} <span className="text-slate-500">({count})</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-8 text-center text-slate-600 text-sm">
-          Data scraped from @busse's Thread • 28.8K views • 282 replies • Built with React + Tailwind
-        </div>
-      </div>
+      <div className="pb-8" />
     </div>
   );
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<TrilogyExplorer />);
+root.render(<App />);
   </script>
 </body>
 </html>
